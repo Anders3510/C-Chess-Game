@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text.RegularExpressions;
 
 namespace ChessGame
@@ -226,7 +226,7 @@ namespace ChessGame
 		* the piece must not be allowed to move further along their path.
 		* A Piece's path must also be blocked by Pieces of its color, 
 	 	* but it must not be allowed to take their place.
-		* 2,6
+		*
 		* 
 		* coords[0] : Piece's current index position on the x axis.
 		* coords[1] : Piece's current index position on the y axis.
@@ -455,12 +455,12 @@ namespace ChessGame
 
 			//Parse strings into coordinates and run checks
 			x = ParseLetter(pieceToMove);
-			y = Int32.Parse(pieceToMove[1].ToString()) - 1;
+			y = int.Parse(pieceToMove[1].ToString()) - 1;
 			if (board[y, x] == null)
 				return false;
 
 			newX = ParseLetter(newLocation);
-			newY = Int32.Parse(newLocation[1].ToString()) - 1;
+			newY = int.Parse(newLocation[1].ToString()) - 1;
 			if (CalculateDestination(new int[] { x, y, newX, newY }, board[y, x].type))
 			{
 				//Move the piece
