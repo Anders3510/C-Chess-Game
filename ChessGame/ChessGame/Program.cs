@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Numerics;
 using System.Text.RegularExpressions;
 
 namespace ChessGame
@@ -10,7 +11,6 @@ namespace ChessGame
 			var rx = new Regex(@"[A-H]{1}[1-8]{1}");
 
 			ChessGame chessGame = new ChessGame();
-			chessGame.f_player = 1;
 			bool isRunning = true;
 			string input;
 
@@ -53,64 +53,332 @@ namespace ChessGame
 		}
 	}
 
-	class ChessGame
+	enum PieceColor
 	{
-		public enum PieceType
+		white,
+		black
+	}
+
+	abstract class Piece
+	{
+		public readonly Piece[,] board;
+		public readonly PieceColor color;
+
+		public Piece(PieceColor _color, Piece[,] _board)
 		{
-			Pawn,
-			Rook,
-			Knight,
-			Bishop,
-			Queen,
-			King
+			color = _color;
+			board = _board;
 		}
 
-		public class Piece
+		public PieceColor GetColor()
 		{
-			//Color is represented by an integer
-			//1 : white
-			//2 : black
-			public int color;
-			public char id;
-			public PieceType type;
+			return color;
+		}
 
-			public Piece(int _color, PieceType _type)
+		public double GetSlope(int[] crds)
+		{
+			if(crds[0] - crds[2] == 0)
+				return -1;
+			else
+				return Math.Abs(crds[1] - crds[3]) / Math.Abs(crds[0] - crds[2]);
+		}
+
+		public abstract char GetID();
+
+		public abstract bool CalculateDestination(int[] coords);
+	}
+
+	class Rook : Piece
+	{
+		public Rook(PieceColor _color, Piece[,] _board) : base(_color, _board) { }
+
+		public override bool CalculateDestination(int[] coords)
+		{
+			double slope = GetSlope(coords);
+
+			if (coords[3] > coords[1]) //If the desired position is located in a lower row
 			{
-				color = _color;
-				type = _type;
-				switch (type)
+				if (coords[0] != coords[2]) //If the x axis is not the same between the current and desired positions
+					return false;
+
+				for (int i = coords[1] + 1; i <= coords[3]; i += 1) //Iterate between current position and desired position
 				{
-					case PieceType.Pawn:
-						id = 'P';
-						break;
-
-					case PieceType.Rook:
-						id = 'R';
-						break;
-
-					case PieceType.Knight:
-						id = 'N';
-						break;
-
-					case PieceType.Bishop:
-						id = 'B';
-						break;
-
-					case PieceType.Queen:
-						id = 'Q';
-						break;
-
-					case PieceType.King:
-						id = 'K';
-						break;
+					if (board[i, coords[0]] != null) //If the current tile is not empty
+					{
+						//If the pieces are not of the same color and the target piece is on the same tile as the target position
+						if (board[i, coords[0]].GetColor() != board[coords[1], coords[0]].GetColor() && i == coords[3])
+						{
+							return true;
+						}
+						else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+						{
+							return false;
+						}
+					}
 				}
 			}
+			else if (coords[3] < coords[1]) //If the desired position is located in a higher row
+			{
+				if (coords[0] != coords[2]) //If the x axis is not the same between the current and desired positions
+					return false;
+
+				for (int i = coords[1] - 1; i >= coords[3]; i -= 1) //Iterate between current position and desired position
+				{
+					if (board[i, coords[0]] != null) //If the current tile is not empty
+					{
+						//If the pieces are not of the same color and the target piece is on the same tile as the target position
+						if (board[i, coords[0]].color != board[coords[1], coords[0]].color && i == coords[3])
+						{
+							return true;
+						}
+						else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+						{
+							return false;
+						}
+					}
+				}
+			}
+			else //In this case, the desired position is located on the same row, in a different column
+			{
+				if (coords[2] > coords[0]) //The desired horizontal position is located right of the current position
+				{
+					for (int i = coords[0] + 1; i <= coords[2]; i += 1)
+					{
+						if (board[coords[1], i] != null) //If the current tile is not empty
+						{
+							//If the pieces are not of the same color and the target piece is on the same tile as the target position
+							if (board[coords[1], i].color != board[coords[1], coords[0]].color && i == coords[3])
+							{
+								return true;
+							}
+							else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+							{
+								return false;
+							}
+						}
+					}
+				}
+				else //The desired horizontal position is located left of the current position
+				{
+					for (int i = coords[0] - 1; i >= coords[2]; i -= 1)
+					{
+						if (board[coords[1], i] != null) //If the current tile is not empty
+						{
+							//If the pieces are not of the same color and the target piece is on the same tile as the target position
+							if (board[coords[1], i].color != board[coords[1], coords[0]].color && i == coords[3])
+							{
+								return true;
+							}
+							else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+							{
+								return false;
+							}
+						}
+					}
+				}
+			} //END OF PRIMARY IF STATEMENT//
+
+			return true; //If no evaluations produce a return value, return true.(for debugging purposes)
 		}
+
+		public override char GetID()
+		{
+			return 'R';
+		}
+	}
+
+	class Bishop : Piece
+	{
+		public Bishop(PieceColor _color, Piece[,] _board) : base(_color, _board) { }
+
+		public override bool CalculateDestination(int[] coords)
+		{
+			int j;
+			if (coords[0] == coords[2] || coords[1] == coords[3])
+				return false;
+
+			if (coords[0] < coords[2] && coords[1] > coords[3]) //Piece's destination is towards the top right
+			{
+				j = coords[0] + 1;
+				for (int i = coords[1] - 1; i >= coords[3]; i -= 1)
+				{
+					if (board[i, j] != null)
+					{
+						//If the pieces are not of the same color and the target piece is on the same tile as the target position
+						if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
+						{
+							return true;
+						}
+						else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+						{
+							return false;
+						}
+					}
+					j += 1;
+				}
+			}
+			else if (coords[0] < coords[2] && coords[1] < coords[3]) //Piece's destination is towards the bottom right
+			{
+				j = coords[0] + 1;
+				for (int i = coords[1] + 1; i <= coords[3]; i += 1)
+				{
+					if (board[i, j] != null)
+					{
+						//If the pieces are not of the same color and the target piece is on the same tile as the target position
+						if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
+						{
+							return true;
+						}
+						else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+						{
+							return false;
+						}
+					}
+					j += 1;
+				}
+			}
+			else if (coords[0] > coords[2] && coords[1] > coords[3]) //Piece's destination is towards the top left
+			{
+				j = coords[0] - 1;
+				for (int i = coords[1] - 1; i >= coords[3]; i -= 1)
+				{
+					if (board[i, j] != null)
+					{
+						//If the pieces are not of the same color and the target piece is on the same tile as the target position
+						if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
+						{
+							return true;
+						}
+						else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+						{
+							return false;
+						}
+					}
+					j -= 1;
+				}
+			}
+			else if (coords[0] > coords[2] && coords[1] < coords[3]) //Piece's destination is towards the bottom left
+			{
+				j = coords[0] - 1;
+				for (int i = coords[1] + 1; i <= coords[3]; i += 1)
+				{
+					if (board[i, j] != null)
+					{
+						//If the pieces are not of the same color and the target piece is on the same tile as the target position
+						if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
+						{
+							return true;
+						}
+						else //The pieces are of the same color, or the desired position is not the same as the current piece's position
+						{
+							return false;
+						}
+					}
+					j -= 1;
+				}
+			} //END OF PRIMARY IF STATEMENT//
+
+			return true;
+		}
+
+		public override char GetID()
+		{
+			return 'B';
+		}
+	}
+
+	class Queen : Piece
+	{
+		public Queen(PieceColor _color, Piece[,] _board) : base(_color, _board) { }
+
+		public override bool CalculateDestination(int[] coords)
+		{
+			double slope = GetSlope(coords);
+
+			if(slope == -1) //if movement is vertical
+			{
+
+			}
+			else if(slope == 0) //if movement is horizontal
+			{
+
+			}
+			else if(slope == 1) //if movement is diagonal
+			{
+
+			}
+			else
+				return false;
+
+			return true;
+		}
+
+		public override char GetID()
+		{
+			return 'Q';
+		}
+	}
+
+	class King : Piece
+	{
+		public King(PieceColor _color, Piece[,] _board) : base(_color, _board) { }
+
+		public override bool CalculateDestination(int[] coords)
+		{
+			return true;
+		}
+
+		public override char GetID()
+		{
+			return 'K';
+		}
+	}
+
+	class Knight : Piece
+	{
+		public Knight(PieceColor _color, Piece[,] _board) : base(_color, _board) { }
+
+		public override bool CalculateDestination(int[] coords)
+		{
+			return true;
+		}
+
+		public override char GetID()
+		{
+			return 'N';
+		}
+	}
+
+	class Pawn : Piece
+	{
+		public Pawn(PieceColor _color, Piece[,] _board) : base(_color, _board) { }
+
+		public override bool CalculateDestination(int[] coords)
+		{
+			return true;
+		}
+
+		public override char GetID()
+		{
+			return 'P';
+		}
+	}
+
+	class ChessGame
+	{
+
+		// (|y - newY|)/(|x - newX|) = slope 
+		//"y - newY" and "x - newX" can foresee directions based on
+		//whether the resulting numbers are negative or positive
+
+		//if slope == 1, movement is diagonal
+		//if slope == 0, movement is horizontal
+		//if x - newX == 0, movement is vertical
 
 		//Flag for switching players
 		//1 : player 1 : white
 		//-1 : player 2 : black
-		public int f_player = 1;
+		private int f_player = 1;
 		//Gameboard
 		public Piece[,] board = new Piece[8, 8];
 
@@ -135,12 +403,12 @@ namespace ChessGame
 			 * {4,0 4,1 4,2 4,3 4,4 4,5 4,6 4,7}
 			 * {5,0 5,1 5,2 5,3 5,4 5,5 5,6 5,7}
 			 * {6,0 6,1 6,2 6,3 6,4 6,5 6,6 6,7}
-			 * {7,0 7,1 7,2 7,3 7,4 7,5 7,6 7,7} 
+			 * {7,0 7,1 7,2 7,3 7,4 7,5 7,6 7,7}
 			 * }
 			 * 
 			 * Movement patterns:
 			 * Rook:
-			 * The Rook can only move in rows and column, and therefore
+			 * The Rook can only move in rows and columns, and therefore
 			 * can either move to the same index in a lower or higher indexed array contained in the first dimension,
 			 * or it can move to any other position within its current second dimension.
 			 * 
@@ -170,34 +438,30 @@ namespace ChessGame
 			 * 
 			 */
 			//Add pieces to board and set appropriate types and colors
-			//Assign an array of possible places to which the piece can move
-			//when it is instatiated, using the constructor function
-			int counter = 0;
-			for(int i = 0; i < 2; i += 1)
-			{
-				board[counter, 0] = new Piece(2, PieceType.Rook);
-				board[counter, 1] = new Piece(2, PieceType.Knight);
-				board[counter, 2] = new Piece(2, PieceType.Bishop);
-				board[counter, 3] = new Piece(2, PieceType.King);
-				board[counter, 4] = new Piece(2, PieceType.Queen);
-				board[counter, 5] = new Piece(2, PieceType.Bishop);
-				board[counter, 6] = new Piece(2, PieceType.Knight);
-				board[counter, 7] = new Piece(2, PieceType.Rook);
-				counter += 7;
-			}
+			board[7, 0] = new Rook(PieceColor.black, board);
+			board[7, 1] = new Knight(PieceColor.black, board);
+			board[7, 2] = new Bishop(PieceColor.black, board);
+			board[7, 3] = new King(PieceColor.black, board);
+			board[7, 4] = new Queen(PieceColor.black, board);
+			board[7, 5] = new Bishop(PieceColor.black, board);
+			board[7, 6] = new Knight(PieceColor.black, board);
+			board[7, 7] = new Rook(PieceColor.black, board);
 
-			int k = 0;
-			while (k < 8)
-			{
-				board[1, k] = new Piece(2, PieceType.Pawn);
-				k += 1;
-			}
-			k = 0;
-			while (k < 8)
-			{
-				board[6, k] = new Piece(1, PieceType.Pawn);
-				k += 1;
-			}
+			board[0, 0] = new Rook(PieceColor.white, board);
+			board[0, 1] = new Knight(PieceColor.white, board);
+			board[0, 2] = new Bishop(PieceColor.white, board);
+			board[0, 3] = new King(PieceColor.white, board);
+			board[0, 4] = new Queen(PieceColor.white, board);
+			board[0, 5] = new Bishop(PieceColor.white, board);
+			board[0, 6] = new Knight(PieceColor.white, board);
+			board[0, 7] = new Rook(PieceColor.white, board);
+
+			for(int i = 0; i < 8; i += 1)
+				board[1, i] = new Pawn(PieceColor.white, board);
+
+			for(int i = 0; i < 8; i += 1)
+				board[6, i] = new Pawn(PieceColor.black, board);
+
 		}
 
 		public void PrintBoard()
@@ -213,7 +477,7 @@ namespace ChessGame
 					if (board[i, j] == null)
 						Console.Write("   |");
 					else
-						Console.Write($" {board[i, j].id} |");
+						Console.Write($" {board[i, j].GetID()} |");
 				}
 				Console.Write("\n|_______________________________|\n");
 			}
@@ -233,191 +497,6 @@ namespace ChessGame
 		* coords[2] : Piece's desired index position on the x axis.
 		* coords[3] : Piece's desired index position on the y axis.
 		*/
-		private bool CalculateDestination(int[] coords, PieceType type)
-		{
-			if (coords[0] == coords[2] && coords[1] == coords[3]) //If the destination coordinates match the current position
-				return false;
-
-			switch (type)
-			{
-				case PieceType.Rook:
-					if (coords[3] > coords[1]) //If the desired position is located in a lower row
-					{
-						if (coords[0] != coords[2]) //If the x axis is not the same between the current and desired positions
-							return false;
-
-						for (int i = coords[1] + 1; i <= coords[3]; i += 1) //Iterate between current position and desired position
-						{
-							if (board[i, coords[0]] != null) //If the current tile is not empty
-							{
-								//If the pieces are not of the same color and the target piece is on the same tile as the target position
-								if (board[i, coords[0]].color != board[coords[1], coords[0]].color && i == coords[3])
-								{
-									return true;
-								}
-								else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-								{
-									return false;
-								}
-							}
-						}
-					}
-					else if (coords[3] < coords[1]) //If the desired position is located in a higher row
-					{
-						if (coords[0] != coords[2]) //If the x axis is not the same between the current and desired positions
-							return false;
-
-						for (int i = coords[1] - 1; i >= coords[3]; i -= 1) //Iterate between current position and desired position
-						{
-							if (board[i, coords[0]] != null) //If the current tile is not empty
-							{
-								//If the pieces are not of the same color and the target piece is on the same tile as the target position
-								if (board[i, coords[0]].color != board[coords[1], coords[0]].color && i == coords[3])
-								{
-									return true;
-								}
-								else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-								{
-									return false;
-								}
-							}
-						}
-					}
-					else //In this case, the desired position is located on the same row, in a different column
-					{
-						if (coords[2] > coords[0]) //The desired horizontal position is located right of the current position
-						{
-							for (int i = coords[0] + 1; i <= coords[2]; i += 1)
-							{
-								if (board[coords[1], i] != null) //If the current tile is not empty
-								{
-									//If the pieces are not of the same color and the target piece is on the same tile as the target position
-									if (board[coords[1], i].color != board[coords[1], coords[0]].color && i == coords[3])
-									{
-										return true;
-									}
-									else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-									{
-										return false;
-									}
-								}
-							}
-						}
-						else //The desired horizontal position is located left of the current position
-						{
-							for (int i = coords[0] - 1; i >= coords[2]; i -= 1)
-							{
-								if (board[coords[1], i] != null) //If the current tile is not empty
-								{
-									//If the pieces are not of the same color and the target piece is on the same tile as the target position
-									if (board[coords[1], i].color != board[coords[1], coords[0]].color && i == coords[3])
-									{
-										return true;
-									}
-									else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-									{
-										return false;
-									}
-								}
-							}
-						}
-					}
-					break;
-
-				/*
-				 * -y, -x			-y, +x
-				 * 
-				 * +y, -x			+y, +x
-				 */
-				case PieceType.Bishop:
-					int j;
-					if (coords[0] == coords[2] || coords[1] == coords[3])
-						return false;
-
-					if (coords[0] < coords[2] && coords[1] > coords[3]) //Piece's destination is towards the top right
-					{
-						j = coords[0] + 1;
-						for (int i = coords[1] - 1; i >= coords[3]; i -= 1)
-						{
-							if (board[i, j] != null)
-							{
-								//If the pieces are not of the same color and the target piece is on the same tile as the target position
-								if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
-								{
-									return true;
-								}
-								else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-								{
-									return false;
-								}
-							}
-							j += 1;
-						}
-					}
-					else if (coords[0] < coords[2] && coords[1] < coords[3]) //Piece's destination is towards the bottom right
-					{
-						j = coords[0] + 1;
-						for (int i = coords[1] + 1; i <= coords[3]; i += 1)
-						{
-							if (board[i, j] != null)
-							{
-								//If the pieces are not of the same color and the target piece is on the same tile as the target position
-								if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
-								{
-									return true;
-								}
-								else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-								{
-									return false;
-								}
-							}
-							j += 1;
-						}
-					}
-					else if (coords[0] > coords[2] && coords[1] > coords[3]) //Piece's destination is towards the top left
-					{
-						j = coords[0] - 1;
-						for (int i = coords[1] - 1; i >= coords[3]; i -= 1)
-						{
-							if (board[i, j] != null)
-							{
-								//If the pieces are not of the same color and the target piece is on the same tile as the target position
-								if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
-								{
-									return true;
-								}
-								else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-								{
-									return false;
-								}
-							}
-							j -= 1;
-						}
-					}
-					else if (coords[0] > coords[2] && coords[1] < coords[3]) //Piece's destination is towards the bottom left
-					{
-						j = coords[0] - 1;
-						for (int i = coords[1] + 1; i <= coords[3]; i += 1)
-						{
-							if (board[i, j] != null)
-							{
-								//If the pieces are not of the same color and the target piece is on the same tile as the target position
-								if (board[i, j].color != board[coords[1], coords[0]].color && (j == coords[2] && i == coords[3]))
-								{
-									return true;
-								}
-								else //The pieces are of the same color, or the desired position is not the same as the current piece's position
-								{
-									return false;
-								}
-							}
-							j -= 1;
-						}
-					}
-					break;
-			}
-			return true;
-		}
 
 		private int ParseLetter(string input)
 		{
@@ -456,12 +535,14 @@ namespace ChessGame
 			//Parse strings into coordinates and run checks
 			x = ParseLetter(pieceToMove);
 			y = int.Parse(pieceToMove[1].ToString()) - 1;
-			if (board[y, x] == null)
-				return false;
 
 			newX = ParseLetter(newLocation);
 			newY = int.Parse(newLocation[1].ToString()) - 1;
-			if (CalculateDestination(new int[] { x, y, newX, newY }, board[y, x].type))
+
+			if (board[y, x] == null || (x == newX && y == newY)) //Return false if a piece is present, or the desired position matches the current.
+				return false;
+
+			if (board[y, x].CalculateDestination(new int[] { x, y, newX, newY }))
 			{
 				//Move the piece
 				board[newY, newX] = board[y, x];
